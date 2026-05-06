@@ -2,24 +2,35 @@
 
 import { useSession, signIn, signOut } from 'next-auth/react';
 import LeaveForm from './components/LeaveForm';
-import ApproverDashboard from './components/ApproverDashboard';
+import Dashboard from './components/Dashboard';
 
 export default function Home() {
   const { data: session, status } = useSession();
 
   // ⏳ Loading state
   if (status === 'loading') {
-    return <p className="p-6">Loading...</p>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   // 🔐 Not logged in
   if (!session) {
     return (
-      <div className="p-6">
-        <p>You are not signed in</p>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+        <h1 className="text-2xl font-bold mb-4">
+          Leave Request System
+        </h1>
+
+        <p className="mb-6 text-gray-600">
+          Please sign in to continue
+        </p>
+
         <button
           onClick={() => signIn()}
-          className="bg-blue-500 text-white px-4 py-2 mt-2"
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
         >
           Sign In
         </button>
@@ -27,23 +38,42 @@ export default function Home() {
     );
   }
 
-  // 👤 Logged in
+  // 👤 Logged in view
   return (
-    <div>
-      <div className="p-4 flex justify-between bg-gray-100">
-        <p>{session.user.email}</p>
-        <button
-          onClick={() => signOut()}
-          className="bg-red-500 text-white px-2"
-        >
-          Logout
-        </button>
+    <div className="min-h-screen bg-gray-100">
+
+      {/* 🔝 Navbar */}
+      <div className="flex justify-between items-center px-6 py-4 bg-white shadow">
+        <h1 className="text-xl font-bold text-blue-600">
+          Leave System
+        </h1>
+
+        <div className="flex items-center gap-4">
+          <span className="text-gray-600">
+            {session.user.email}
+          </span>
+
+          <button
+            onClick={() => signOut()}
+            className="bg-red-500 text-white px-3 py-1 rounded"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
-      {/* 🎯 STEP 4: ROLE-BASED UI */}
-      {session.user.role === 'employee' && <LeaveForm />}
+      {/* 🎯 ROLE-BASED CONTENT */}
+      <div className="p-6">
 
-      {session.user.role === 'approver' && <ApproverDashboard />}
+        {session.user.role === 'employee' && (
+          <LeaveForm />
+        )}
+
+        {session.user.role === 'approver' && (
+          <Dashboard />
+        )}
+
+      </div>
     </div>
   );
 }
