@@ -1,5 +1,5 @@
 "use server"
-import { prisma } from "@/lib/prisma";
+import { sql } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
 export async function submitLeaveRequest(formData: FormData) {
@@ -8,26 +8,19 @@ export async function submitLeaveRequest(formData: FormData) {
   const type = formData.get("type") as string;
   const reason = formData.get("reason") as string;
 
-  // In a real app, get the userId from the session
-  const mockUserId = "user_123"; 
+  const mockUserId = "user_123"; // Replace with actual user session later
 
   try {
-    await prisma.leaveRequest.create({
-      data: {
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        type: type as any,
-        reason: reason,
-        userId: mockUserId,
-        status: "PENDING"
-      }
-    });
+    // A clean, safe SQL injection-proof insert statement
+    await sql`
+      INSERT INTO leave_requests (start_date, end_date, type, reason, user_id, status)
+      VALUES (${new Date(startDate)}, ${new Date(endDate)}, ${type}, ${reason}, ${mockUserId}, 'PENDING')
+    `;
 
-    // This refreshes the dashboard data without a full page reload
     revalidatePath("/dashboard");
     return { success: true };
-  } catch (error) {
-    console.error(error);
-    return { success: false, error: "Failed to submit request" };
+  } catch (error: any) {
+    console.error("Database Error:", error);
+    return { success: false, error: error.message || "Failed to submit request" };
   }
 }

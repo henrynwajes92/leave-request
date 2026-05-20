@@ -1,24 +1,24 @@
 "use server"
-import { prisma } from "@/lib/prisma";
+import { sql } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
 export async function updateLeaveStatus(requestId: string, newStatus: "APPROVED" | "REJECTED") {
-  // 1. Update the request
-  const request = await prisma.leaveRequest.update({
-    where: { id: requestId },
-    data: { status: newStatus },
-  });
+  try {
+    // Update the request status using plain SQL
+    await sql`
+      UPDATE leave_requests 
+      SET status = ${newStatus} 
+      WHERE id = ${requestId}
+    `;
 
-  // 2. If approved, deduct from user's balance
-  if (newStatus === "APPROVED") {
-    // Basic logic to calculate days between dates
-    const days = 5; // Replace with actual date diff logic
-    await prisma.user.update({
-      where: { id: request.userId },
-      data: { totalAllowance: { decrement: days } }
-    });
+    // Note: If you want to deduct from a user's allowance here in the future,
+    // you would run a second SQL query updating a 'users' table.
+
+    // Refresh the admin page data instantly
+    revalidatePath('/admin');
+    return { success: true };
+  } catch (error: any) {
+    console.error("Database Error:", error);
+    return { success: false, error: error.message };
   }
-
-  revalidatePath('/admin');
-  revalidatePath('/dashboard');
 }
