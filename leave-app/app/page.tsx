@@ -1,15 +1,33 @@
 "use client";
-import React from 'react';
-import { Umbrella, Clock, CheckCircle, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Umbrella, Clock, CheckCircle } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
-import Navbar from '@/components/Navbar';
-// 1. Import the action we created
 import { submitLeaveRequest } from "@/app/actions/submit-leave";
 
 export default function LeaveDashboard() {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch live requests from our Supabase database on mount
+  useEffect(() => {
+    async function fetchRequests() {
+      try {
+        // We call a basic native fetch or standard window-level API
+        const res = await fetch('/api/leaves'); 
+        const data = await res.json();
+        setRequests(data);
+      } catch (err) {
+        console.error("Failed to load history:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRequests();
+  }, []);
+
   return (
     <main className="min-h-screen bg-slate-50">
-      <Navbar /> {/* Added the Navbar here */}
+      {/* Look! The <Navbar /> line has been removed from here completely */}
       
       <div className="p-4 md:p-12 max-w-6xl mx-auto space-y-8">
         {/* Header */}
@@ -29,11 +47,10 @@ export default function LeaveDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* --- STEP B: THE FORM SECTION --- */}
+          {/* --- THE FORM SECTION --- */}
           <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-fit">
             <h2 className="text-lg font-bold mb-4">Quick Request</h2>
             
-            {/* The action attribute calls our server function directly */}
             <form action={async (formData) => {
               const res = await submitLeaveRequest(formData);
               if (res.success) {
@@ -95,11 +112,40 @@ export default function LeaveDashboard() {
               </button>
             </form>
           </section>
-          {/* --- END OF STEP B --- */}
 
-          {/* History Table (Same as before) */}
+          {/* History Table */}
           <section className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-             {/* ... table code from previous step ... */}
+            <div className="p-6 border-b border-slate-100">
+              <h2 className="text-lg font-bold">Request History</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
+                    <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Dates</th>
+                    <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {requests.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50 transition">
+                      <td className="p-4 font-medium text-slate-700">{req.type}</td>
+                      <td className="p-4 text-slate-600 text-sm">
+                        {req.start_date} <span className="mx-1 text-slate-400">→</span> {req.end_date}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {req.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </div>

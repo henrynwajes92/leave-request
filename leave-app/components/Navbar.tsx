@@ -1,49 +1,52 @@
 "use client";
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Umbrella, LayoutDashboard, ShieldCheck, LogOut } from 'lucide-react';
+import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Umbrella, LogOut } from "lucide-react";
 
-export default function Navbar() {
+export function Navbar() {
+  const { data: session } = useSession();
   const pathname = usePathname();
-
-  const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Admin Panel', href: '/admin', icon: ShieldCheck },
-  ];
+  
+  // Get the role from our secure JWT session cookie
+  const userRole = session?.user?.role; 
 
   return (
-    <nav className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+    <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 text-blue-600 font-bold text-xl">
-          <Umbrella className="w-8 h-8" />
+        <div className="flex items-center gap-2 font-bold text-xl text-blue-600">
+          <Umbrella className="w-6 h-6" />
           <span>LeaveFlow</span>
-        </Link>
+        </div>
 
-        <div className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                pathname === item.href 
-                  ? 'bg-blue-50 text-blue-600' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.name}
+        <div className="hidden md:flex items-center gap-4 text-sm font-medium">
+          {/* Only show Employee Dashboard link if they aren't an admin */}
+          {userRole !== "ADMIN" && (
+            <Link href="/" className={`p-2 rounded-md ${pathname === "/" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900"}`}>
+              Dashboard
             </Link>
-          ))}
+          )}
+
+          {/* Only show Admin Panel link to users flagged as ADMIN */}
+          {userRole === "ADMIN" && (
+            <Link href="/admin" className={`p-2 rounded-md ${pathname === "/admin" ? "text-blue-600 bg-blue-50" : "text-slate-600 hover:text-slate-900"}`}>
+              Admin Panel
+            </Link>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="text-slate-500 hover:text-red-600 transition">
+        <span className="text-xs bg-slate-100 font-bold px-2.5 py-1 rounded-full text-slate-600">
+          {userRole === "ADMIN" ? "🛡️ Admin" : "👥 Employee"}
+        </span>
+        <button 
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="text-slate-500 hover:text-rose-600 transition p-2 rounded-lg"
+          title="Sign Out"
+        >
           <LogOut className="w-5 h-5" />
         </button>
-        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs border border-blue-200">
-          JD
-        </div>
       </div>
     </nav>
   );

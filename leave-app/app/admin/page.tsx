@@ -1,58 +1,111 @@
-"use client";
-import { useState, useEffect } from "react";
-import { Check, X, User } from "lucide-react";
+import { sql } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 
-export default function AdminDashboard() {
-  const [pendingRequests, setPendingRequests] = useState([
-    { id: "1", userName: "John Doe", type: "Vacation", days: 5, reason: "Family trip" },
-    { id: "2", userName: "Jane Smith", type: "Sick Leave", days: 2, reason: "Flu" },
-  ]);
+// Forces Next.js to always fetch fresh data from Supabase on every page load
+export const dynamic = "force-dynamic";
 
-  const handleAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
-    // Logic: Call your API to update database status
-    setPendingRequests(prev => prev.filter(req => req.id !== id));
-    alert(`Request ${action.toLowerCase()} successfully.`);
-  };
+export default async function AdminPanel() {
+  // Fetch all pending requests directly from Supabase
+  const pendingRequests = await sql`
+    SELECT id, start_date, end_date, type, reason, user_name, status 
+    FROM leave_requests 
+    WHERE status = 'PENDING' 
+    ORDER BY created_at ASC
+  `;
+
+  // Server Action to process approvals/rejections immediately
+  async function handleAction(formData: FormData) {
+    "use server";
+    const id = formData.get("id");
+    const status = formData.get("status");
+
+    try {
+      await sql`
+        UPDATE leave_requests 
+        SET status = ${status as string} 
+        WHERE id = ${Number(id)}
+      `;
+      
+      // Refresh both layouts so data updates in real-time across views
+      revalidatePath("/admin");
+      revalidatePath("/"); 
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Pending Approvals</h1>
-      
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 divide-y">
+    <main className="p-4 md:p-12 max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900">Admin Approval Panel</h1>
+        <p className="text-slate-500 text-sm">Review incoming team leave requests.</p>
+      </div>
+
+      {/* Main Request Container */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {pendingRequests.length === 0 ? (
-          <p className="p-10 text-center text-slate-500">No pending requests to review.</p>
+          <div className="p-12 text-center text-slate-400 font-medium">
+            🎉 No pending leave requests to review!
+          </div>
         ) : (
-          pendingRequests.map((req) => (
-            <div key={req.id} className="p-6 flex items-center justify-between hover:bg-slate-50">
-              <div className="flex items-center gap-4">
-                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                  <User className="text-slate-500 w-5 h-5" />
+          <div className="divide-y divide-slate-100">
+            {pendingRequests.map((req: any) => (
+              <div key={req.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                
+                {/* Request Details */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2.5">
+                    {/* Displays the dynamic sender's name */}
+                    <span className="font-bold text-slate-800 text-lg">
+                      {req.user_name || "Unknown Employee"}
+                    </span> 
+                    <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
+                      {req.type}
+                    </span>
+                  </div>
+                  
+                  <p className="text-slate-600 text-sm italic">
+                    "{req.reason || "No reason provided"}"
+                  </p>
+                  
+                  <p className="text-xs text-slate-400 font-medium">
+                    Requested Dates: {new Date(req.start_date).toLocaleDateString()} to {new Date(req.end_date).toLocaleDateString()}
+                  </p>
                 </div>
-                <div>
-                  <p className="font-semibold text-slate-900">{req.userName}</p>
-                  <p className="text-sm text-slate-500">{req.type} • {req.days} days</p>
-                  <p className="text-xs italic text-slate-400 mt-1">"{req.reason}"</p>
+
+                {/* Action Forms */}
+                <div className="flex items-center gap-2 sm:self-end md:self-center">
+                  {/* Approve Button Form */}
+                  <form action={handleAction}>
+                    <input type="hidden" name="id" value={req.id} />
+                    <input type="hidden" name="status" value="APPROVED" />
+                    <button 
+                      type="submit" 
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition shadow-xs cursor-pointer"
+                    >
+                      Approve
+                    </button>
+                  </form>
+
+                  {/* Reject Button Form */}
+                  <form action={handleAction}>
+                    <input type="hidden" name="id" value={req.id} />
+                    <input type="hidden" name="status" value="REJECTED" />
+                    <button 
+                      type="submit" 
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition shadow-xs cursor-pointer"
+                    >
+                      Reject
+                    </button>
+                  </form>
                 </div>
+
               </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => handleAction(req.id, 'REJECTED')}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={() => handleAction(req.id, 'APPROVED')}
-                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
-                >
-                  <Check className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
